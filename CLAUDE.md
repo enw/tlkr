@@ -4,36 +4,79 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-This is a reference repository for DeepSeek OCR usage patterns and examples. It documents how to use the DeepSeek OCR model through Ollama for various OCR and document processing tasks.
+This is a web application for processing images using multiple vision models through Ollama, with support for OCR, document processing, and interactive chat. It provides a user-friendly interface for DeepSeek OCR, LLaVA, and Moondream models.
 
 ## Key Files
 
-- **prompt_examples.md**: Contains prompt patterns for different OCR use cases (document conversion, image OCR, figure parsing, etc.)
-- **shell_examples.md**: Contains shell command examples showing how to invoke DeepSeek OCR via Ollama CLI
-- **enw_resume.md**: Currently empty, appears to be reserved for future content
+- **server.py**: Main Flask web application with SQLite database for state persistence
+- **ocr_data.db**: SQLite database storing interactions, chat messages, and cost tracking
+- **uploads/**: Directory containing uploaded images
+- **prompt_examples.md**: Contains prompt patterns for different OCR use cases
+- **shell_examples.md**: Contains shell command examples showing how to invoke models via Ollama CLI
+- **requirements.txt**: Python dependencies (Flask)
 
-## DeepSeek OCR Usage Patterns
+## Application Architecture
 
-The repository documents several OCR prompt patterns:
+### Database Schema
 
-1. **Document Conversion**: `<image>\n<|grounding|>Convert the document to markdown.`
-2. **General OCR**: `<image>\n<|grounding|>OCR this image.`
-3. **Layout-free OCR**: `<image>\nFree OCR.`
-4. **Figure Parsing**: `<image>\nParse the figure.`
-5. **Image Description**: `<image>\nDescribe this image in detail.`
-6. **Object Recognition**: `<image>\nLocate <|ref|>xxxx<|/ref|> in the image.`
+The application uses SQLite with two main tables:
 
-## Running DeepSeek OCR
+1. **interactions**: Stores OCR/vision processing results
+   - id, filename, intent, output, model, input_tokens, output_tokens, estimated_cost, timestamp
 
-Commands use the Ollama CLI with the format:
+2. **chat_messages**: Stores follow-up chat conversations about images
+   - id, interaction_id, role, content, tokens, cost, timestamp
+
+### Supported Models
+
+- **deepseek-ocr**: Specialized for document OCR and conversion (best for documents)
+- **llava**: General-purpose vision model for image understanding
+- **moondream**: Fast, lightweight vision model for quick queries
+
+### Features
+
+1. **Image Upload & Processing**: Upload images/PDFs and process with selected model
+2. **Multiple Models**: Choose between DeepSeek OCR, LLaVA, or Moondream
+3. **Custom Intents**: Predefined intents or custom prompts with `<|grounding|>` support
+4. **Cost Tracking**: Token usage and estimated costs displayed in UI and stored in database
+5. **Chat Functionality**: Ask follow-up questions about processed images
+6. **Persistent Storage**: All interactions and chat history saved to SQLite database
+
+## Running the Application
+
 ```bash
-ollama run deepseek-ocr "<image_path>\n<|grounding|>Prompt text."
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the server
+python server.py
+# or
+./start.sh
 ```
 
-The `<|grounding|>` token is key for document-focused OCR tasks. For general image description, it can be omitted.
+The app runs on http://localhost:8080
 
-## Notes
+## OCR Usage Patterns
 
-- This is a documentation repository, not a code project
-- No build, test, or development commands are needed
-- When adding new examples, follow the existing pattern structure in the respective markdown files
+The application supports several OCR prompt patterns:
+
+1. **Document Conversion**: `<|grounding|>Convert the document to markdown.`
+2. **General OCR**: `<|grounding|>OCR this image.`
+3. **Layout-free OCR**: `Free OCR.` (no grounding token)
+4. **Figure Parsing**: `<|grounding|>Parse the figure.`
+5. **Image Description**: `Describe this image in detail.` (no grounding token)
+6. **Custom Intent**: User-defined prompt with optional `<|grounding|>` prefix
+
+The `<|grounding|>` token is automatically added for document-focused tasks unless explicitly present or the intent is general image description.
+
+## Development Notes
+
+- Flask runs in debug mode by default
+- Database is automatically initialized on startup
+- Token estimates use ~4 characters per token heuristic
+- Cost estimates based on MODEL_COSTS configuration in server.py
+- File uploads limited to 16MB
+- Ollama processing timeout set to 120 seconds
